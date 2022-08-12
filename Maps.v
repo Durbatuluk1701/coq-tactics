@@ -107,3 +107,16 @@ Proof with eauto.
   assert (eqb v v = true) by (eapply ECT2; refl);
   rewrite H...
 Qed.
+
+Module MapsLtac.
+Ltac map_unfold := unfold map_set, map_get, eqb, deceq_impl_eqb, gen_deceq_eqb, decEq.
+End MapsLtac.
+
+Module MapsTypeClasses.
+(** Making map features 
+*)
+Module MapTC.
+End MapTC.
+Module BiMapTC.
+End BiMapTC.
+End MapsTypeClasses.
