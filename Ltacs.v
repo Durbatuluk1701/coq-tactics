@@ -4,6 +4,10 @@ Ltac ind x := induction x.
 
 Ltac dest x := destruct x.
 
+Ltac refl := reflexivity.
+
+Ltac cong := congruence.
+
 (*
   Inversion simpler notation tactics
 *)
@@ -30,4 +34,4 @@ Ltac PG := match goal with |- ?A => idtac A end.
 *)
 Ltac qcon := 
   (* TODO: Make more robust *)
-  intros C; try (inversion C || congruence).
+  intros C; try (inversion C || cong).
