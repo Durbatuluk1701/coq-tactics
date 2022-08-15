@@ -1,3 +1,7 @@
+/html
+coq.mk*
+/.vscode
+
 .*.aux
 .*.d
 *.a
