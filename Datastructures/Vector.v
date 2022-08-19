@@ -147,7 +147,7 @@ Notation "h <:: t" := (veccons h _ t) (at level 60, right associativity)
 Notation "<[ x ]" := (veccons x 0 vecnil) (at level 105) : vector_scope.
 Notation "<[ x ; y ; .. ; z ]" := (veccons x _ (veccons y _ .. (veccons z _ (vecnil)) ..)) (at level 105) : vector_scope.
 Notation "v <@[ i ]" := (vector_get_value v i) (at level 60, right associativity) : vector_scope.
-Notation "v set<@[ i ] <- v'" := (vector_set_value v i v') (at level 65, right associativity) : vector_scope.
+Notation "v set<@[ i ] <- v'" := (vector_set_value v i v') (at level 65, left associativity) : vector_scope.
 Open Scope vector_scope.
 End VectorNotations.
 
