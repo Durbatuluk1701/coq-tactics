@@ -98,3 +98,32 @@ Instance deceq_impl_eqb (A : Type) `{DE : DecEq A} : EqClass A :=
   eqb_leibniz := gen_eqb_impl_eqb_leibniz ;
   neqb_leibniz := gen_eqb_impl_neqb_leibniz
 }.
+
+Class Defaultable (A : Type) := 
+{
+  defVal : A 
+}.
+
+#[global]
+Instance nat_defaultable : Defaultable nat :=
+{
+  defVal := 0
+}.
+
+#[global]
+Instance string_defaultable : Defaultable string :=
+{
+  defVal := ""
+}.
+
+#[global]
+Instance list_defaultable {A : Type} : Defaultable (list A) :=
+{
+  defVal := nil
+}.
+
+#[global]
+Instance pair_defaultable {A B : Type} `{HA : Defaultable A} `{HB : Defaultable B} : Defaultable(A * B) :=
+{
+  defVal := (defVal, defVal)
+}.

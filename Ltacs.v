@@ -34,4 +34,4 @@ Ltac PG := match goal with |- ?A => idtac A end.
 *)
 Ltac qcon := 
   (* TODO: Make more robust *)
-  intros C; try (inversion C || cong).
+  intros C; try (inversion C || cong); try (cong).

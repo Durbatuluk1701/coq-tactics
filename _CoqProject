@@ -1,4 +1,6 @@
 -R . CoqTactics
 Ltacs.v
 TypeClasses.v
-Maps.v
+Datastructures/Maps.v
+Datastructures/Vector.v
+Datastructures/Matrix.v
