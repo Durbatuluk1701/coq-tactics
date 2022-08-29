@@ -212,10 +212,20 @@ Instance defaultable_matrix {A : Type} `{H : Defaultable A} (n : nat) (m : nat) 
   defVal := default_matrix n m
 }.
 
+Fixpoint vec_of_vecs_to_matrix {A : Type} {rows cols : nat} 
+    (vVec : (@Vector (@Vector A cols) rows)) : (@Matrix A rows cols).
+destruct vVec eqn:VEC.
+- (* vVec = <[] *)
+  apply (mtMatrix 0 cols eq_refl).
+- (* vVec = x <:: v *) 
+  pose proof (vec_of_vecs_to_matrix A n cols v).
+  apply (nMatrix (S n) cols x eq_refl X).
+Defined.
+
 Module MatrixNotations.
 Declare Scope matrix_scope.
 (* For constructing matrices from the vector vector more easily *)
-Notation "'MAT' v" := (nMatrix _ _ v) (at level 50) : matrix_scope.
+Notation "'MAT' v" := (vec_of_vecs_to_matrix v) (at level 50) : matrix_scope.
 (* For lookup *)
 Notation "m @[ x ][ y ]" := (matrix_get_value m x y) (at level 70, right associativity) : matrix_scope.
 (* For setting values *)
