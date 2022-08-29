@@ -1,5 +1,6 @@
 Require Import List Lia.
 Require Import TypeClasses Ltacs Vector.
+Import VectorNotations.
 Import ListNotations.
 (*
 Formallizing a matrix so that we can use them for operations
@@ -13,59 +14,107 @@ Formallizing a matrix so that we can use them for operations
   Maybe this would be better represented using vectors?
 *)
 
-Inductive Matrix {A : Type} : Type :=
-| mtMatrix  : Matrix
-| oneMatrix : forall (m : pos),
-    @Vector (@Vector A m) 1 ->
-    Matrix
-| nMatrix   : forall (n m : pos),
-    @Vector (@Vector A m) n -> 
-    Matrix.
+Inductive Matrix {A : Type} : nat -> nat -> Type :=
+| mtMatrix  : forall (rows cols : nat), rows = 0 ->
+    Matrix rows cols
+| nMatrix   : forall (rows cols : nat) {rows' : nat} (curRow : (@Vector A cols)),
+    S rows' = rows ->
+    Matrix rows' cols ->
+    Matrix rows cols.
 
-Theorem gen_auto_mat_less : forall n,
-  n <> 0 ->
-  0 < n.
-Proof.
-  lia.
-Qed.
+Definition mat_num_rows {A : Type} {rows cols : nat} (m : (@Matrix A rows cols)) :=
+  rows.
 
-Definition mat_num_rows {A : Type} (m : (@Matrix A)) :=
-  match m with
-  | mtMatrix => 0
-  | (nMatrix n m _ _ _) => n
-  end.
+Definition mat_num_cols {A : Type} {rows cols : nat} (m : (@Matrix A rows cols)) :=
+  cols.
 
-Definition mat_num_cols {A : Type} (m : (@Matrix A)) :=
-  match m with
-  | mtMatrix => 0
-  | (nMatrix n m _ _ _) => m
-  end.
-
+Require Import Program Arith.
 (** Testing Matrix Row/Cols
     - We want the establishment of matrices to have n = rows, m = cols
       so that they can be specified using a row by columns idea
 *)
-Definition tMat1 := nMatrix 2 3 _ _ (<[ <[ 1;2;3] ; <[4;5;6]]).
+Compute nMatrix.
+Definition tMat1 := nMatrix 2 3 (<[ 1 ; 2; 3]) eq_refl (nMatrix 1 3 (<[4;5;6]) eq_refl (mtMatrix 0 3 eq_refl)).
 Example testTmat1_rows : mat_num_rows tMat1 = 2. reflexivity. Defined.
 Example testTmat1_cols : mat_num_cols tMat1 = 3. reflexivity. Defined.
 
-Definition matrix_get_value {A : Type} (mat : @Matrix A)
-        (n m : nat) : option A :=
-  match mat with
-  | mtMatrix => None
-  | nMatrix n' m' vecs =>
-      if (andb (Nat.leb n n') (Nat.leb m m'))
-      then (
-        match (vector_get_value vecs n) with
-        (* Get row first *)
-        | None => None
-        | Some vec' => (vector_get_value vec' m) (* get value at col *)
-        end)
-      else None
+Fixpoint matrix_get_value_row {A : Type} {rows cols : nat} (mat : @Matrix A rows cols)
+        (rowIndex : nat) : option (@Vector A _) :=
+  match rowIndex with
+  | 0 => 
+      match mat with
+      | mtMatrix _ _ _ => None
+      | nMatrix rows' cols' curVec rowProof subMat =>
+          Some curVec
+      end
+  | S ri' =>
+      match mat with
+      | mtMatrix _ _ _ => None
+      | nMatrix rows' cols' curVec rowProof subMat =>
+          matrix_get_value_row subMat ri'
+      end
   end.
 
-Definition matrix_set_value {A : Type} (mat : @Matrix A)
-        (n m : nat) (newV : A) : (@Matrix A) :=
+Definition matrix_get_value {A : Type} {rows cols : nat} (mat : @Matrix A rows cols)
+        (rowInd colInd : nat) : option A :=
+  match (matrix_get_value_row mat rowInd) with
+  | None => None (* row index out of bounds*)
+  | Some rowVec =>
+      rowVec <@[colInd]
+  end.
+
+Fixpoint matrix_set_value {A : Type} {rows cols : nat} (mat : @Matrix A rows cols)
+        (rowInd colInd : nat) (newV : A) {struct mat} : (@Matrix A rows cols).
+
+destruct rowInd eqn:RI.
+- (* rowInd = 0 *)
+  destruct mat eqn:MAT.
+  * (* mat = mtMatrix *)
+    apply mat.
+  * (* mat = nMatrix rows cols curRow e m *)
+    apply (nMatrix rows cols (curRow set<@[colInd] <- newV) e m).
+    (* updating the row since we are at it (rowInd = 0 )*)
+- (* rowInd = S n *)
+  destruct mat eqn:MAT.
+  * (* mat = mtMatrix *)
+    apply mat.
+  * (* mat = nMatrix rows cols curRow e m *)
+    apply (nMatrix rows cols curRow e (matrix_set_value _ _ _ m n colInd newV)).
+    (* recursive case, keep moving down rows *)
+Defined.
+(* 
+
+destruct rowInd eqn:RI.
+
+- (* rowInd = 0 *) 
+  (* if the row index is 0, then we have reached where we are done *)
+  remember mat as mat'.
+  induction mat.
+  * (* rows = 0, so mat = mtMatrix *)
+    (* we have no-where we could update *)
+    apply mat'.
+  * (* S rows' = rows *)
+    (* curRow is the correct row *)
+    (* update curRow[colInd] with newV *)
+    pose proof (curRow' := curRow set<@[colInd] <- newV).
+    pose proof (nMatrix rows cols curRow' e mat).
+    apply X.
+- (* rowInd = S n *)
+  remember mat as mat'.
+  induction mat.
+  * (* rows = 0, so mat = mtMatrix *)
+    apply mat'.
+  * (* S rows' = rows *)
+    (* find the sub matrix *)
+    pose proof (SubM := matrix_set_value A rows' cols mat rows' colInd newV).
+    pose proof (nMatrix rows cols curRow e SubM).
+    apply X.
+Defined.   *)
+(* 
+Definition matrix_set_value {A : Type} {rows cols : nat} (mat : @Matrix A rows cols)
+        (rowInd colInd : nat) (newV : A) : (@Matrix A rows cols) :=
+  match (matrix_get_value_row mat rowInd) with
+  | None => 
   match mat with
   | mtMatrix => mtMatrix
   | nMatrix n' m' vecs =>
@@ -81,13 +130,14 @@ Definition matrix_set_value {A : Type} (mat : @Matrix A)
         end
       )
       else nMatrix n' m' vecs
-  end.
+  end. *)
 
 (** Testing Matrix Get/Set
     - Want intuitive get/set functions
 *)
 Definition inVec := (<[ <[ 0 ; 1] ; <[ 2; 3] ; <[ 4; 5]]).
-Definition tMat2 := nMatrix 3 2 inVec.
+Definition tMat2 := nMatrix 3 2 (<[ 0 ; 1]) eq_refl (nMatrix 2 2 (<[ 2 ; 3]) eq_refl
+  (nMatrix 1 2 (<[ 4 ; 5]) eq_refl (mtMatrix 0 2 eq_refl))).
 (* Testing gets *)
 Example testTmat2_get1 : matrix_get_value tMat2 0 0 = Some 0. reflexivity. Defined.
 Example testTmat2_get2 : matrix_get_value tMat2 0 1 = Some 1. reflexivity. Defined.
@@ -97,28 +147,67 @@ Example testTmat2_get5 : matrix_get_value tMat2 2 0 = Some 4. reflexivity. Defin
 Example testTmat2_get6 : matrix_get_value tMat2 2 1 = Some 5. reflexivity. Defined.
 (* Testing sets *)
 Example testTmat2_set1 : matrix_set_value tMat2 0 0 42 = 
-  (nMatrix 3 2 (inVec set<@[0] <- (<[ 42 ; 1]))). reflexivity. Defined.
+  nMatrix 3 2 (<[ 42 ; 1]) eq_refl (
+    nMatrix 2 2 (<[ 2 ; 3]) eq_refl (
+      nMatrix 1 2 (<[ 4 ; 5]) eq_refl (
+        mtMatrix 0 2 eq_refl
+      )
+    )
+  ). reflexivity. Defined.
 Example testTmat2_set2 : matrix_set_value tMat2 0 1 42 = 
-  (nMatrix 3 2 (inVec set<@[0] <- (<[ 0 ; 42]))). reflexivity. Defined.
+    nMatrix 3 2 (<[ 0 ; 42]) eq_refl (
+    nMatrix 2 2 (<[ 2 ; 3]) eq_refl (
+      nMatrix 1 2 (<[ 4 ; 5]) eq_refl (
+        mtMatrix 0 2 eq_refl
+      )
+    )
+  ). reflexivity. Defined.
 Example testTmat2_set3 : matrix_set_value tMat2 1 0 42 = 
-  (nMatrix 3 2 (inVec set<@[1] <- (<[ 42 ; 3]))). reflexivity. Defined.
+    nMatrix 3 2 (<[ 0 ; 1]) eq_refl (
+    nMatrix 2 2 (<[ 42 ; 3]) eq_refl (
+      nMatrix 1 2 (<[ 4 ; 5]) eq_refl (
+        mtMatrix 0 2 eq_refl
+      )
+    )
+    ). reflexivity. Defined.
 Example testTmat2_set4 : matrix_set_value tMat2 1 1 42 = 
-  (nMatrix 3 2 (inVec set<@[1] <- (<[ 2 ; 42]))). reflexivity. Defined.
+    nMatrix 3 2 (<[ 0 ; 1]) eq_refl (
+    nMatrix 2 2 (<[ 2 ; 42]) eq_refl (
+      nMatrix 1 2 (<[ 4 ; 5]) eq_refl (
+        mtMatrix 0 2 eq_refl
+      )
+    )
+  ). reflexivity. Defined.
 Example testTmat2_set5 : matrix_set_value tMat2 2 0 42 = 
-  (nMatrix 3 2 (inVec set<@[2] <- (<[ 42 ; 5]))). reflexivity. Defined.
+    nMatrix 3 2 (<[ 0 ; 1]) eq_refl (
+    nMatrix 2 2 (<[ 2 ; 3]) eq_refl (
+      nMatrix 1 2 (<[ 42 ; 5]) eq_refl (
+        mtMatrix 0 2 eq_refl
+      )
+    )
+  ). reflexivity. Defined.
 Example testTmat2_set6 : matrix_set_value tMat2 2 1 42 = 
-  (nMatrix 3 2 (inVec set<@[2] <- (<[ 4 ; 42]))). reflexivity. Defined.
+    nMatrix 3 2 (<[ 0 ; 1]) eq_refl (
+    nMatrix 2 2 (<[ 2 ; 3]) eq_refl (
+      nMatrix 1 2 (<[ 4 ; 42]) eq_refl (
+        mtMatrix 0 2 eq_refl
+      )
+    )
+  ). reflexivity. Defined.
   
-Fixpoint default_matrix {A : Type} `{H : Defaultable A} (n : nat) (m : nat) : (@Matrix A).
-pose proof (defaultable_vector m).
-pose proof (@defaultable_vector _ X n).
-destruct X0.
-pose proof (@nMatrix A n m defVal).
-apply X0.
+Fixpoint default_matrix {A : Type} `{H : Defaultable A} (n : nat) (m : nat) : (@Matrix A n m).
+destruct n.
+- (* n = 0 (rows) *)
+  apply (@mtMatrix A 0 m eq_refl).
+- (* need Matrix (S n) m *)
+  pose proof (default_matrix A H n m).
+  pose proof (defaultable_vector m) as curRow.
+  destruct curRow.
+  apply (nMatrix (S n) m defVal eq_refl X).
 Defined.
 
 #[global]
-Instance defaultable_matrix {A : Type} `{H : Defaultable A} (n : nat) (m : nat) : Defaultable (@Matrix A) :=
+Instance defaultable_matrix {A : Type} `{H : Defaultable A} (n : nat) (m : nat) : Defaultable (@Matrix A n m) :=
 {
   defVal := default_matrix n m
 }.
@@ -136,17 +225,15 @@ Open Scope matrix_scope.
 End MatrixNotations.
 
 Import MatrixNotations.
-Definition exampleMatrix : (@Matrix nat) :=
-  (@nMatrix nat 2 2) (<[ <[ 1 ; 2 ] ; <[ 3; 4]]).
+Definition exampleMatrix : (@Matrix nat 2 2) :=
+  (nMatrix 2 2 (<[ 1 ; 2 ]) eq_refl (nMatrix 1 2 (<[ 3; 4]) eq_refl (mtMatrix 0 2 eq_refl))).
 
 Example em1test1 : (exampleMatrix @[1][1]) = Some 4. reflexivity. Defined.
 Example em1test2 : (exampleMatrix @[0][1]) = Some 2. reflexivity. Defined.
 Example vecGetTest : ((<[ 1 ; 2 ; 3]) <@[2]) = Some 3. reflexivity. Defined.
-Example em1setTest : (exampleMatrix set@[1][1] <- 42) = MAT <[ <[ 1 ; 2] ; <[ 3 ; 42]].
-reflexivity. Defined.
+Example em1setTest : (exampleMatrix set@[1][1] <- 42) = (nMatrix 2 2 (<[ 1 ; 2 ]) eq_refl (nMatrix 1 2 (<[ 3; 42]) eq_refl (mtMatrix 0 2 eq_refl))). reflexivity. Defined.
 Example defMatrices : ((@defaultable_matrix nat _ 3 3).(defVal))
-  = MAT <[ <[ 0 ; 0 ; 0 ] ; <[ 0 ; 0 ; 0] ; <[ 0; 0; 0] ].
-reflexivity. Defined.
+  = (nMatrix 3 3 (<[ 0 ; 0 ; 0 ]) eq_refl (nMatrix 2 3 (<[ 0 ; 0 ; 0]) eq_refl (nMatrix 1 3 (<[ 0 ; 0 ;0 ]) eq_refl (mtMatrix 0 3 eq_refl)))). reflexivity. Defined.
 (** Testing Matrix Notation
     - We want the matrix notation to make sense and be easy to use
 *)
