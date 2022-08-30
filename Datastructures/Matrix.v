@@ -17,7 +17,8 @@ Formallizing a matrix so that we can use them for operations
 Inductive Matrix {A : Type} : nat -> nat -> Type :=
 | mtMatrix  : forall (rows cols : nat), rows = 0 ->
     Matrix rows cols
-| nMatrix   : forall (rows cols : nat) {rows' : nat} (curRow : (@Vector A cols)),
+| nMatrix   : forall (rows cols : nat) {rows' : nat} 
+      (curRow : (@Vector A cols)),
     S rows' = rows ->
     Matrix rows' cols ->
     Matrix rows cols.
@@ -28,12 +29,10 @@ Definition mat_num_rows {A : Type} {rows cols : nat} (m : (@Matrix A rows cols))
 Definition mat_num_cols {A : Type} {rows cols : nat} (m : (@Matrix A rows cols)) :=
   cols.
 
-Require Import Program Arith.
 (** Testing Matrix Row/Cols
     - We want the establishment of matrices to have n = rows, m = cols
       so that they can be specified using a row by columns idea
 *)
-Compute nMatrix.
 Definition tMat1 := nMatrix 2 3 (<[ 1 ; 2; 3]) eq_refl (nMatrix 1 3 (<[4;5;6]) eq_refl (mtMatrix 0 3 eq_refl)).
 Example testTmat1_rows : mat_num_rows tMat1 = 2. reflexivity. Defined.
 Example testTmat1_cols : mat_num_cols tMat1 = 3. reflexivity. Defined.
@@ -82,55 +81,6 @@ destruct rowInd eqn:RI.
     apply (nMatrix rows cols curRow e (matrix_set_value _ _ _ m n colInd newV)).
     (* recursive case, keep moving down rows *)
 Defined.
-(* 
-
-destruct rowInd eqn:RI.
-
-- (* rowInd = 0 *) 
-  (* if the row index is 0, then we have reached where we are done *)
-  remember mat as mat'.
-  induction mat.
-  * (* rows = 0, so mat = mtMatrix *)
-    (* we have no-where we could update *)
-    apply mat'.
-  * (* S rows' = rows *)
-    (* curRow is the correct row *)
-    (* update curRow[colInd] with newV *)
-    pose proof (curRow' := curRow set<@[colInd] <- newV).
-    pose proof (nMatrix rows cols curRow' e mat).
-    apply X.
-- (* rowInd = S n *)
-  remember mat as mat'.
-  induction mat.
-  * (* rows = 0, so mat = mtMatrix *)
-    apply mat'.
-  * (* S rows' = rows *)
-    (* find the sub matrix *)
-    pose proof (SubM := matrix_set_value A rows' cols mat rows' colInd newV).
-    pose proof (nMatrix rows cols curRow e SubM).
-    apply X.
-Defined.   *)
-(* 
-Definition matrix_set_value {A : Type} {rows cols : nat} (mat : @Matrix A rows cols)
-        (rowInd colInd : nat) (newV : A) : (@Matrix A rows cols) :=
-  match (matrix_get_value_row mat rowInd) with
-  | None => 
-  match mat with
-  | mtMatrix => mtMatrix
-  | nMatrix n' m' vecs =>
-      if (andb (Nat.leb n n') (Nat.leb m m'))
-      then (
-        let row := vecs <@[n] (* get row *) in
-        match row with
-        | None => nMatrix n' m' vecs (* Couldnt find so default *)
-        | Some row' =>
-            let updRowCol := row' set<@[m] <- newV in (* update at the col *)
-            let updMat    := vecs set<@[n] <- updRowCol in
-            nMatrix n' m' updMat
-        end
-      )
-      else nMatrix n' m' vecs
-  end. *)
 
 (** Testing Matrix Get/Set
     - Want intuitive get/set functions
@@ -265,3 +215,123 @@ Example testTmat3_set4 : (tMat3 set@[0][2] <- 42) =
 (MAT <[ <[ 1 ; 2 ; 42] ; <[ 4 ; 5 ; 6] ; <[ 7 ; 8; 9]]). reflexivity. Defined.
 Example testTmat3_set5 : (tMat3 set@[2][0] <- 42) =
 (MAT <[ <[ 1 ; 2 ; 3] ; <[ 4 ; 5 ; 6] ; <[ 42 ; 8; 9]]). reflexivity. Defined.
+
+Fixpoint eqb_matrix {A : Type} `{H : EqClass A} 
+    {rows1 cols1 rows2 cols2: nat}
+    (m1 : (@Matrix A rows1 cols1)) 
+    (m2 : (@Matrix A rows2 cols2)): bool :=
+  match m1, m2 with
+  | mtMatrix r1 c1 _, mtMatrix r2 c2 _ =>
+      if (andb (eqb r1 r2) (eqb c1 c2))
+      then (* if number of rows and cols eq *)
+          true
+      else false
+  | nMatrix r1 c1 curR1 pf1 subM1, nMatrix r2 c2 curR2 pf2 subM2 =>
+      if (andb (eqb r1 r2) (andb (eqb c1 c2) (eqb_vector curR1 curR2)))
+      then (* rows, cols, and current row eq *)
+          eqb_matrix subM1 subM2
+      else false
+  | _, _ => false
+  end.
+
+Example eqb_matrix_test1 :
+eqb_matrix (MAT <[ <[ 1 ; 2] ; <[ 3 ; 4]]) (MAT <[ <[ 1; 2] ; <[3;4]]) = true. reflexivity. Defined.
+
+Lemma eqb_matrix_refl : forall {A : Type} `{H : EqClass A} {n m : nat}
+  (mat : (@Matrix A n m)),
+  eqb_matrix mat mat = true.
+Proof.
+  induction mat; simpl; repeat (rewrite gen_deceq_eqb_refl); eauto.
+  simpl. rewrite eqb_vector_refl. auto.
+Qed.
+
+Theorem eqb_matrix_same_length : forall {A : Type} {rows1 rows2 cols1 cols2 : nat} 
+  `{H : EqClass A}
+  (m1 : (@Matrix A rows1 cols1)) (m2 : (@Matrix A rows2 cols2)),
+    eqb_matrix m1 m2 = true ->
+    rows1 = rows2 /\ cols1 = cols2.
+Proof.
+  induction m1; destruct m2; intros; inversion H0.
+  - destruct (gen_deceq_eqb rows rows0) eqn:Req;
+    destruct (gen_deceq_eqb cols cols0) eqn:Ceq; 
+    simpl in *; try congruence.
+    apply gen_eqb_impl_eqb_leibniz in Req.
+    apply gen_eqb_impl_eqb_leibniz in Ceq; eauto.
+  - destruct (gen_deceq_eqb rows rows0) eqn:Req;
+    destruct (gen_deceq_eqb cols cols0) eqn:Ceq; 
+    simpl in *; try congruence.
+    apply gen_eqb_impl_eqb_leibniz in Req.
+    apply gen_eqb_impl_eqb_leibniz in Ceq; eauto.
+Qed.
+
+Theorem eqb_matrix_works : forall {A : Type} `{H : EqClass A} {rows cols : nat}
+  (m1 m2 : @Matrix A rows cols),
+  eqb_matrix m1 m2 = true ->
+  (forall (i j : nat),
+    (m1 @[i][j]) = (m2 @[i][j])).
+Proof.
+  induction m1; destruct m2; eauto; intros; try inversion H0.
+  unfold matrix_get_value.
+  assert (gen_deceq_eqb rows rows = true). apply gen_eqb_impl_eqb_leibniz; auto.
+  assert (gen_deceq_eqb cols cols = true). apply gen_eqb_impl_eqb_leibniz; auto.
+  rewrite H1, H3 in *. simpl in H2.
+  destruct (eqb_vector curRow curRow0) eqn:EQvec.
+  - (* eqb_matrix m1 m2 = true *)
+    assert (rows' = rows'0). lia. subst.
+    pose proof (IHm1 m2 H2).
+    unfold matrix_get_value in H4.
+    destruct i.
+    * (* i = 0 *)
+      simpl. eapply eqb_vector_works. eauto.
+    * (* i = S i *) 
+      simpl. eauto.
+  - congruence.
+Qed.
+
+Module MatrixTypeClass.
+
+(** UIP is needed here because the proofs embedded in each matrix
+    are unable to be proven equal without it. 
+    This is a safe assumption to make here as eq_refl on nats will
+    have unique identity proofs and should be considered roughly
+    proof irrelevant
+*)
+Axiom uip : forall A (x y : A) (p q : x = y), p = q.
+
+#[global]
+Instance deceq_matrix {A : Type} `{H : EqClass A} {n m : nat} : DecEq (@Matrix A n m).
+constructor.
+induction x1; destruct x2; simpl in *.
+- assert (e = e0). apply uip. subst. eauto.
+- right. qcon.
+- right. qcon.
+- destruct (eqb curRow curRow0) eqn:Eqvec.
+  * (* vecs eq *)
+    rewrite eqb_leibniz in Eqvec. subst.
+    assert (rows' = rows'0). lia. subst.
+    specialize IHx1 with x2.
+    destruct IHx1.
+    ** (* rest eq *)
+      subst. left.
+      assert (eq_refl = e0). eapply uip.
+      subst. eauto.
+    ** (* rest neq *) 
+      right. qcon. 
+      exT H1. exT H1. congruence.
+  * (* vecs neq *)
+    rewrite neqb_leibniz in Eqvec.
+    right. qcon. exT H2.
+    congruence.
+Defined.
+
+#[global]
+Instance eq_class_matrix {A : Type} `{H : EqClass A} {n m : nat} : EqClass (@Matrix A n m) :=
+{
+  eqb := gen_deceq_eqb ;
+  eqb_leibniz := gen_eqb_impl_eqb_leibniz ;
+  neqb_leibniz := gen_eqb_impl_neqb_leibniz ;
+}.
+
+End MatrixTypeClass.
+
+  

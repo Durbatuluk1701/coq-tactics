@@ -90,8 +90,6 @@ Fixpoint vector_set_value {A : Type} {len : nat}
       end
   end.
 
-
-
 Lemma vsv_gte_len_same : forall {A : Type} {len : nat} (n : nat)
   (v : @Vector A len) (newV : A),
   n >= len ->
@@ -198,7 +196,7 @@ Proof.
 Qed.
 
 Example vec11 : 
-  vec_to_list (1 <:: vecnil) = [1].
+  vec_to_list (<[ 1 ]) = [1].
 unfold vec_to_list. reflexivity. Defined.
 
 Example vec1test : (vec_to_list (<[ 12 ; 42 ])) = [12; 42].
@@ -251,6 +249,16 @@ Fixpoint eqb_vector {A : Type} `{H : EqClass A} {n1 n2 : nat}
   | _, _ => false
   end.
 
+Theorem eqb_vector_refl: forall {A : Type} `{H : EqClass A} {len : nat}
+  (v : (@Vector A len)),
+    eqb_vector v v = true.
+Proof.
+  destruct H.
+  induction v; simpl; eauto.
+  assert (eqb x x = true). rewrite eqb_leibniz. auto.
+  rewrite H. auto.
+Qed.
+
 Lemma eqb_vector_only_same_size : forall {A : Type} `{H : EqClass A} {n1 n2 : nat}
   (v1 : (@Vector A n1)) (v2 : (@Vector A n2)),
   eqb_vector v1 v2 = true -> n1 = n2.
@@ -274,6 +282,21 @@ Proof.
           destruct (eqb x x0); eauto; cong.
     * (* n <> n0 *) 
       destruct (eqb x x0); eauto. cong.
+Qed.
+
+Theorem eqb_vector_works : forall {A : Type} `{H : EqClass A} {len : nat}
+  (v1 v2 : @Vector A len),
+  eqb_vector v1 v2 = true ->
+  (forall (i : nat),
+    (v1 <@[i]) = (v2 <@[i])).
+Proof.
+  induction v1; destruct v2; eauto; intros; try inversion H0.
+  destruct (eqb x x0) eqn:Eqx; try congruence.
+  * (* x = x0 *)
+    pose proof (eqb_vector_only_same_size _ _ H2). subst.
+    pose proof (IHv1 _ H2).
+    destruct i; eauto.
+    simpl. erewrite eqb_leibniz in Eqx. subst. eauto.
 Qed.
 
 Module VectorTypeClass.

@@ -69,11 +69,29 @@ Class EqClass (A : Type) `{DE : DecEq A} :=
   neqb_leibniz  : forall x y, eqb x y = false <-> x <> y;
 }.
 
+Theorem eqb_refl_all : forall {A : Type} `{H : EqClass A} (a : A),
+  eqb a a = true.
+Proof.
+  destruct H; intros.
+  rewrite eqb_leibniz0. auto.
+Qed.
+
 Definition gen_deceq_eqb {A : Type} `{DE : DecEq A} (a1 a2 : A) : bool :=
   match (decEq a1 a2) with
   | left e => true
   | right e => false
   end.
+
+Theorem gen_deceq_eqb_refl: forall {A : Type} `{DE : DecEq A} (a : A),
+  gen_deceq_eqb a a = true.
+Proof.
+  intros. 
+  unfold gen_deceq_eqb.
+  destruct DE. simpl.
+  destruct (decEq0 a a).
+  - refl.
+  - cong.
+Qed.
 
 Lemma gen_eqb_impl_eqb_leibniz : forall {A : Type} `{Eq : DecEq A} (x y : A), 
   gen_deceq_eqb x y = true <-> x = y.
