@@ -145,14 +145,14 @@ Instance deceq_impl_eqb (A : Type) `{DE : DecEq A} : EqClass A :=
 }.
 
 
-Class Partial_Order {A : Type} `{Eq : EqClass A} (lte : A -> A -> Prop) :=
+Class Partial_Order {A : Type} `{Eq : EqClass A} (R : A -> A -> Prop) :=
 {
-  po_reflexive : forall (a : A), lte a a ;
-  po_antiSym : forall (a b : A), lte a b -> lte b a -> eqb a b = true ;
+  po_reflexive : forall (a : A), R a a ;
+  po_antiSym : forall (a b : A), R a b -> R b a -> eqb a b = true ;
   po_transitivity : forall (a b c : A),
-      lte a b ->
-      lte b c ->
-      lte a c
+      R a b ->
+      R b c ->
+      R a c
 }.
 
 Lemma nat_eqb_sn : forall (a b : nat),
@@ -227,9 +227,9 @@ constructor.
   eapply PeanoNat.Nat.le_trans; eauto.
 Defined.
 
-Class Total_Order {A : Type} (lte : A -> A -> Prop) `{PO : Partial_Order A lte} :=
+Class Total_Order {A : Type} (R : A -> A -> Prop) `{PO : Partial_Order A R} :=
 {
-  decLte : forall (a b : A), Dec (lte a b)
+  decR : forall (a b : A), Dec (R a b)
 }.
 
 Lemma nat_0_le_sn : forall (n : nat),
