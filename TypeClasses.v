@@ -1,7 +1,7 @@
 Require Import Ltacs.
 Require Import String.
 
-Set Typeclasses Debug.
+(* Set Typeclasses Debug. *)
 
 Class Dec (P : Prop) := { dec : P + ~ P }.
 
@@ -12,6 +12,33 @@ Proof.
   intros.
   destruct H; destruct dec0; eauto.
 Qed.
+
+Theorem dec_impl_equiv_bool : forall (P : Prop),
+  Dec P ->
+  exists f, (P <-> f = true) /\ (~ P <-> f = false).
+Proof.
+  intros.
+  dest H.
+  dest dec0; eauto.
+  - exists true; split; split; eauto; qcon.
+  - exists false; split; split; eauto; qcon.
+Qed.
+
+Lemma dec_le_nat : forall (a b : nat),
+  Dec (a <= b).
+Proof.
+  induction a; dest b; econstructor; eauto.
+  - left. ind b; eauto.
+  - right. qcon.
+  - specialize IHa with b. dest IHa.
+    dest dec0.
+    * left. eapply le_n_S. eauto.
+    * right. intros HC. eapply le_S_n in HC. cong.
+Defined.
+
+#[global]
+Instance dec_le_nat_inst (a b : nat) : Dec (a <= b).
+eapply dec_le_nat. Defined.
 
 Class DecEq (A : Type) := 
 {
@@ -224,6 +251,24 @@ induction a; dest b; constructor; eauto.
   * (* ~ a <= b *)
     right. intros HC. 
     eapply le_S_n in HC. cong.
+Defined.
+
+Class WellFounded {A : Type} (R : A -> A -> Prop) `{PO : Partial_Order A R} :=
+{
+  min : A ;
+  minElemProof : 
+    (forall (a : A), (R min a)) /\
+    (forall (a : A), a <> min -> ~ (R a min))
+}.
+
+#[global]
+Instance wf_nat : WellFounded le.
+pose proof (Build_WellFounded _ le _ _ _ 0).
+apply H. clear H.
+intros. split.
+- induction a; eauto.
+- induction a; eauto.
+  intros; qcon.
 Defined.
 
 Class Defaultable (A : Type) := 
