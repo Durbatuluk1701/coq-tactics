@@ -117,6 +117,115 @@ Instance deceq_impl_eqb (A : Type) `{DE : DecEq A} : EqClass A :=
   neqb_leibniz := gen_eqb_impl_neqb_leibniz
 }.
 
+
+Class Partial_Order {A : Type} `{Eq : EqClass A} (lte : A -> A -> Prop) :=
+{
+  po_reflexive : forall (a : A), lte a a ;
+  po_antiSym : forall (a b : A), lte a b -> lte b a -> eqb a b = true ;
+  po_transitivity : forall (a b c : A),
+      lte a b ->
+      lte b c ->
+      lte a c
+}.
+
+Lemma nat_eqb_sn : forall (a b : nat),
+  eqb a b = true <->
+  eqb (S a) (S b) = true.
+Proof.
+  ind a; dest b; eauto; split; eauto; intros.
+  - unfold eqb, deceq_impl_eqb, gen_deceq_eqb, decEq, decEq_nat, nat_rec, nat_rect in *.
+    destruct (match
+        (fix F (n : nat) : forall x2 : nat, {n = x2} + {n <> x2} :=
+           match n as n0 return (forall x2 : nat, {n0 = x2} + {n0 <> x2}) with
+           | 0 =>
+               fun x2 : nat =>
+               match x2 as n0 return ({0 = n0} + {0 <> n0}) with
+               | 0 => left eq_refl
+               | S n0 => right (O_S n0)
+               end
+           | S n0 =>
+               fun x2 : nat =>
+               match x2 as n1 return ({S n0 = n1} + {S n0 <> n1}) with
+               | 0 => right (not_eq_sym (O_S n0))
+               | S n1 =>
+                   match F n0 n1 with
+                   | left a => left (f_equal_nat nat S n0 n1 a)
+                   | right b => right (not_eq_S n0 n1 b)
+                   end
+               end
+           end) a b
+      with
+      | left a0 => left (f_equal_nat nat S a b a0)
+      | right b0 => right (not_eq_S a b b0)
+      end); eauto.
+  - unfold eqb, deceq_impl_eqb, gen_deceq_eqb, decEq, decEq_nat, nat_rec, nat_rect in *.
+    destruct (match
+          (fix F (n : nat) : forall x2 : nat, {n = x2} + {n <> x2} :=
+             match n as n0 return (forall x2 : nat, {n0 = x2} + {n0 <> x2}) with
+             | 0 =>
+                 fun x2 : nat =>
+                 match x2 as n0 return ({0 = n0} + {0 <> n0}) with
+                 | 0 => left eq_refl
+                 | S n0 => right (O_S n0)
+                 end
+             | S n0 =>
+                 fun x2 : nat =>
+                 match x2 as n1 return ({S n0 = n1} + {S n0 <> n1}) with
+                 | 0 => right (not_eq_sym (O_S n0))
+                 | S n1 =>
+                     match F n0 n1 with
+                     | left a => left (f_equal_nat nat S n0 n1 a)
+                     | right b => right (not_eq_S n0 n1 b)
+                     end
+                 end
+             end) a b
+        with
+        | left a0 => left (f_equal_nat nat S a b a0)
+        | right b0 => right (not_eq_S a b b0)
+        end); eauto.
+Qed.
+
+
+
+#[global]
+Instance partial_order_nats : Partial_Order le.
+constructor.
+- induction a; eauto.
+- induction a; destruct b; intros; eauto.
+  * inv H0.
+  * inv H.
+  * eapply le_S_n in H, H0. assert (eqb a b = true). eauto.
+    rewrite <- nat_eqb_sn; eauto.
+- induction a; dest b; dest c; intros; eauto;
+  eapply PeanoNat.Nat.le_trans; eauto.
+Defined.
+
+Class Total_Order {A : Type} (lte : A -> A -> Prop) `{PO : Partial_Order A lte} :=
+{
+  decLte : forall (a b : A), Dec (lte a b)
+}.
+
+Lemma nat_0_le_sn : forall (n : nat),
+  0 <= S n.
+Proof.
+  induction n; eauto.
+Qed.
+
+#[global]
+Instance total_order_nat : Total_Order le.
+constructor.
+induction a; dest b; constructor; eauto.
+- left. eapply nat_0_le_sn.
+- right. intros HC. inv HC.
+- specialize IHa with b. dest IHa.
+  dest dec0.
+  * (* a <= b *)
+    left. apply le_n_S; eauto.
+  * (* ~ a <= b *)
+    right. intros HC. 
+    eapply le_S_n in HC. cong.
+Defined.
+
 Class Defaultable (A : Type) := 
 {
   defVal : A 
