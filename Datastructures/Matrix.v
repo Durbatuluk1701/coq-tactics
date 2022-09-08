@@ -334,4 +334,81 @@ Instance eq_class_matrix {A : Type} `{H : EqClass A} {n m : nat} : EqClass (@Mat
 
 End MatrixTypeClass.
 
-  
+
+Fixpoint matrix_entries {A : Type} {r c : nat} (m : @Matrix A r c) : list A :=
+  match m with
+  | mtMatrix _ _ _ => nil
+  | nMatrix rows cols curRow rPrf subMat =>
+      vec_to_list curRow ++ matrix_entries subMat
+  end.
+
+Example m_ent_1 : (matrix_entries (MAT <[ <[ 1;2] ; <[3;4]])) = [1;2;3;4].
+reflexivity. Defined.
+
+Example m_ent_2 : (matrix_entries (MAT <[ <[ 41;42;40] ; <[40;41;42]])) = [41;42;40;40;41;42].
+reflexivity. Defined.
+
+Lemma in_app_impl_or_in : forall {A : Type} (l1 l2 : list A) x,
+  In x (l1 ++ l2) ->
+  In x l1 \/ In x l2.
+Proof.
+  induction l1; smp; eauto; intros.
+  dest H; eauto.
+  eapply IHl1 in H. dest H; eauto.
+Qed.
+(* 
+Lemma matrix_column_height_change_get : forall {A : Type} {r c : nat}
+  (m : @Matrix A r c) curRow ent x,
+  forall (i j : nat), (nMatrix (S r) c curRow eq_refl m @[i][j] = Some ent) ->
+    exists (i j : nat), (nMatrix (S r) (S c) (x <:: curRow) eq_refl m @[i][j] = Some ent). *)
+
+Lemma in_impl_exists'' : forall {A : Type} {c : nat} (curRow : @Vector A c) ent,
+  In ent (vec_to_list curRow) ->
+  (exists (j : nat), 
+    curRow <@[j] = Some ent).
+Proof.
+  induction curRow; intros; smp; eauto.
+  - inv H.
+  - dest H; subst.
+    * exists 0. refl.
+    * eapply IHcurRow in H. dest H. 
+      exists (S x0); eauto.
+Qed. 
+
+Lemma in_impl_exists' : forall {A : Type} {r c : nat} (curRow : @Vector A c) (m : @Matrix A r c) ent,
+  In ent (vec_to_list curRow) ->
+  exists (i j : nat), (nMatrix (S r) c curRow eq_refl m @[i][j] = Some ent).
+Proof.
+  induction curRow; intros; eauto.
+  - inv H.
+  - inv H; subst.
+    * exists 0, 0. refl.
+    * exists 0. unfold matrix_get_value. smp.
+      pose proof (@in_impl_exists'' _ _ _ _ H0).
+      dest H1. exists (S x0). eauto.
+Qed.
+
+Lemma in_impl_exists : forall {A : Type} {r c : nat} (m : @Matrix A r c) ent,
+  In ent (matrix_entries m) ->
+  exists (i j : nat), (m @[i][j] = Some ent).
+Proof.
+  induction m; intros; smp; eauto.
+  - inv H.
+  - apply in_app_impl_or_in in H. dest H.
+    * (* in curRow *) 
+      dest (curRow); smp.
+      ** inv H.
+      ** eapply in_impl_exists'. eauto.
+    * eapply IHm in H. dest H. dest H.
+      exists (S x). exists x0. 
+      unfold matrix_get_value; smp. eauto.
+Qed.
+
+Lemma all_matrix_entries_in_matrix : forall {A : Type} {r c : nat} (m : @Matrix A r c) lm,
+  matrix_entries m = lm ->
+  (forall ent, In ent lm ->
+      exists (i j : nat), m @[i][j] = Some ent).
+Proof.
+  intros. rewrite <- H in *.
+  eapply in_impl_exists. eauto.
+Qed.

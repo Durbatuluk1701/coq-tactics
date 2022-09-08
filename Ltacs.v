@@ -1,5 +1,8 @@
 Tactic Notation "smp" := (simpl in *).
 
+Ltac gendep x :=
+  generalize dependent x.
+
 Ltac ind x := induction x.
 
 Ltac dest x := destruct x.
