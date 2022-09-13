@@ -286,8 +286,14 @@ Class WeakMaximal {A : Type} (R : A -> A -> Prop) :=
       (forall (elem : A), In elem l -> R elem max)
 }.
 
+Class Maximal {A : Type} (R : A -> A -> Prop) :=
+{
+  maxElemProof : forall (l : list A), l <> nil -> exists (max : A),
+      ((forall (elem : A), In elem l -> R elem max) /\ In max l)
+}.
+
 #[global]
-Instance maximal_nats : WeakMaximal le.
+Instance weak_maximal_nats : WeakMaximal le.
 constructor.
 induction l.
 - intros. cong.
@@ -364,6 +370,49 @@ induction l.
                 destruct H2; subst; eauto; try lia.
                 eapply PeanoNat.Nat.le_trans.
                 eapply H; eauto. lia.
+Defined.
+
+#[global]
+Instance maximal_nats : Maximal le.
+constructor.
+induction l; intros.
+- cong.
+- destruct l.
+  * (* only a in list, so a = max *)
+    exists a; split; smp; eauto.
+    intros. destruct H0; try lia.
+  * (* a :: n :: l = list *)
+    assert (n :: l <> nil). qcon.
+    pose proof (IHl H0) as IHl.
+    clear H. clear H0.
+    destruct IHl as [max' [Hel Hmax]].
+    smp.
+    destruct Hmax.
+    **  (* n = max' *)
+        subst.
+        assert (a <= max' \/ max' <= a). lia.
+        destruct H.
+      *** (* a <= max' *)
+          exists max'; split; intros; eauto.
+          destruct H0 as [H0 | [H1 | H2]]; subst; eauto.
+      *** (* max' <= a *)
+          exists a; split; intros; eauto.
+          destruct H0 as [H0 | [H0 | H0]]; subst; eauto.
+          eapply PeanoNat.Nat.le_trans.
+          eapply Hel; eauto. lia.
+    **  (* In max' l, n <> max also *)
+        assert (a <= max' \/ max' <= a). lia.
+        destruct H0.
+      *** (* a <= max' *)
+          exists max'; split; intros; eauto.
+          destruct H1 as [H1 | [H1 | H2]]; subst; eauto.
+      *** (* max' <= a *)
+          exists a; split; intros; eauto.
+          destruct H1 as [H1 | [H1 | H1]]; subst; eauto.
+        ****  eapply PeanoNat.Nat.le_trans. 
+              eapply Hel; eauto. lia.
+        ****  eapply PeanoNat.Nat.le_trans.
+              eapply Hel; eauto. lia.
 Defined.
 
 Lemma nat_0_le_sn : forall (n : nat),
