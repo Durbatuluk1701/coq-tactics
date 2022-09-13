@@ -229,8 +229,142 @@ Defined.
 
 Class Total_Order {A : Type} (R : A -> A -> Prop) `{PO : Partial_Order A R} :=
 {
-  decR : forall (a b : A), Dec (R a b)
+  dec_t_order : forall (a b : A), R a b + R b a
 }.
+
+Theorem total_order_invertible : forall {A : Type} {R : A -> A -> Prop} 
+  `{HT : Total_Order A R} (a b : A),
+    a <> b ->
+    R a b <-> ~ R b a.
+Proof.
+  split; intros.
+  - dest PO. intros HC.
+    pose proof (po_antiSym0 _ _ H0 HC).
+    rewrite eqb_leibniz in H1. cong.
+  - dest (dec_t_order a b); eauto.
+    cong.
+Qed.
+
+Require Import List.
+
+#[global]
+Instance dec_in {A : Type} `{Heq : EqClass A} (a : A) (l : list A) : Dec (In a l).
+constructor.
+induction l; smp; eauto.
+destruct IHl.
+- (* In a l *)
+  eauto.
+- (* ~ In a l *)
+  destruct (eqb a0 a) eqn:E.
+  * (* a0 = a *)
+    rewrite eqb_leibniz in E. eauto.
+  * (* a0 <> a *)
+    rewrite neqb_leibniz in E. 
+    right. qcon.
+Defined.
+
+Require Import Lia.
+
+Fixpoint t_order_max_in_list {A : Type} (l : list A) 
+  (R : A -> A -> Prop) `{TO : Total_Order A R} : option A.
+destruct l eqn:L'.
+- apply None.
+- destruct (t_order_max_in_list A l0 R DE Eq0 PO TO) eqn:Rec.
+  * (* rec = Some a0 *)
+    destruct (dec_t_order a a0).
+    ** (* R a a0 - so a0 max *)
+      apply (Some a0).
+    ** (* R a0 a - so a max *)
+      apply (Some a).
+  * (* rec = None *)
+    apply (Some a).
+Defined.
+
+Class WeakMaximal {A : Type} (R : A -> A -> Prop) :=
+{
+  weakMaxElemProof : forall (l : list A), l <> nil -> exists (max : A),
+      (forall (elem : A), In elem l -> R elem max)
+}.
+
+#[global]
+Instance maximal_nats : WeakMaximal le.
+constructor.
+induction l.
+- intros. cong.
+- intros.
+  destruct l; smp.
+  * (* l = nil *)
+    exists a; intros; eauto.
+    destruct H0; subst; eauto; try exfalso; eauto.
+  * (* l = n :: l *)
+    assert (n :: l <> nil). {
+      clearAll.
+      induction l; eauto; try qcon.
+    }
+    pose proof (IHl H0) as IHl. 
+    clear H. clear H0.
+    destruct IHl as [max' H].
+    assert (n < max' \/ n = max' \/ max' < n). lia.
+    destruct H0.
+    **  (* n < max' *)
+        assert (a < max' \/ a = max' \/ max' < a). lia.
+        destruct H1.
+      *** (* a < max' => max' is greatest *)
+          exists max'; intros; eauto.
+          destruct H2; eauto; subst; eauto; try lia.
+      *** destruct H1.
+        ****  (* a = max' => a/max' is greatest *)
+              subst.
+              exists max'; intros; eauto.
+              destruct H1; eauto; subst; eauto; try lia.
+        ****  (* max' < a => a is greatest *)
+              exists a; intros; eauto.
+              destruct H2; eauto; subst; eauto; try lia;
+              destruct H2; subst; eauto; try lia.
+              eapply PeanoNat.Nat.le_trans.
+              eapply H; eauto. lia.
+    **  (* n = max' \/ max' < n*)
+        destruct H0.
+      *** (* n = max' *)
+          subst.
+          assert (a < max' \/ a = max' \/ max' < a). lia.
+          destruct H0.
+        ****  exists max'; intros; eauto.
+              destruct H1; eauto; subst; eauto; try lia.
+        ****  destruct H0.
+          ***** subst. (* a = max' *)
+                exists max'; intros; eauto.
+                destruct H0; eauto.
+          ***** (* max' < a *)
+                exists a; intros; eauto.
+                destruct H1; subst; eauto.
+                destruct H1; subst; eauto; try lia.
+                eapply PeanoNat.Nat.le_trans.
+                eapply H; eauto. lia.
+      *** (* max' < n *)
+          assert (a < n \/ a = n \/ n < a). lia.
+          destruct H1; eauto.
+        ****  (* max' < n, a < n -> n greatest *)
+              exists n; intros; eauto.
+              destruct H2; subst; eauto; try lia.
+              destruct H2; subst; eauto; try lia.
+              eapply PeanoNat.Nat.le_trans.
+              eapply H; eauto. lia.
+        ****  (* a = n \/ n < a *)
+              destruct H1; subst; eauto.
+          ***** (* a = n -> n greatest *)
+                exists n; intros; eauto.
+                destruct H1; subst; eauto; try lia.
+                destruct H1; subst; eauto; try lia.
+                eapply PeanoNat.Nat.le_trans.
+                eapply H; eauto. lia.
+          ***** (* n < a -> a greatest *)
+                exists a; intros; eauto.
+                destruct H2; subst; eauto; try lia.
+                destruct H2; subst; eauto; try lia.
+                eapply PeanoNat.Nat.le_trans.
+                eapply H; eauto. lia.
+Defined.
 
 Lemma nat_0_le_sn : forall (n : nat),
   0 <= S n.
@@ -241,16 +375,14 @@ Qed.
 #[global]
 Instance total_order_nat : Total_Order le.
 constructor.
-induction a; dest b; constructor; eauto.
-- left. eapply nat_0_le_sn.
-- right. intros HC. inv HC.
+induction a; destruct b; eauto.
+- left. lia.
+- right. lia.
 - specialize IHa with b. dest IHa.
-  dest dec0.
   * (* a <= b *)
     left. apply le_n_S; eauto.
   * (* ~ a <= b *)
-    right. intros HC. 
-    eapply le_S_n in HC. cong.
+    right. lia.
 Defined.
 
 Class WellFounded {A : Type} (R : A -> A -> Prop) `{PO : Partial_Order A R} :=
