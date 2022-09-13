@@ -9,6 +9,37 @@ Ltac clearAll :=
   | H : _ |- _ => clear H
   end.
 
+Tactic Notation "destH_or" :=
+  match goal with
+  | H : _ \/ _ |- _  => 
+      let H1' := fresh "H" in
+      let H2' := fresh "H" in
+      destruct H as [H1' | H2']
+  end.
+
+Tactic Notation "destH_and" :=
+  match goal with
+  | H : _ /\ _ |- _ =>
+      let H1' := fresh "H" in
+      let H2' := fresh "H" in
+      destruct H as [H1' H2']
+  end.
+
+Tactic Notation "destH_exists" :=
+  match goal with
+  | H : exists X , _  |- _  =>
+      let X' := fresh X in
+      let H' := fresh "H" in
+      destruct H as [X' H']
+  end.
+
+Tactic Notation "destH" :=
+  do 2 (* doing twice in case it unfolds something *)
+  (repeat destH_exists;  
+  repeat destH_or;
+  repeat destH_and).
+
+
 Ltac ind x := induction x.
 
 Ltac dest x := destruct x.
