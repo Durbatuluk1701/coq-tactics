@@ -62,6 +62,35 @@ Definition matrix_get_value {A : Type} {rows cols : nat} (mat : @Matrix A rows c
       rowVec <@[colInd]
   end.
 
+Lemma mgv_lt_r_c_some : forall {A : Type} {r c : nat} (m : @Matrix A r c)
+  (rowInd colInd : nat), 
+  rowInd < r /\ colInd < c ->
+  exists out, 
+    matrix_get_value m rowInd colInd = Some out.
+Proof.
+  induction m; smp; intros; subst; eauto.
+  - inv H. lia.
+  - destruct rowInd, colInd, H; unfold matrix_get_value in *; smp.
+    * pose proof (@vgv_lt_len_some A cols 0 curRow); eauto.
+    * pose proof (@vgv_lt_len_some A cols (S colInd) curRow); eauto.
+    * eapply IHm; lia.
+    * eapply IHm; lia.
+Qed.
+
+Lemma mgv_gt_r_c_none : forall {A : Type} {r c : nat} (m : @Matrix A r c)
+    (rowInd colInd : nat),
+  rowInd > r \/ colInd > c ->
+  matrix_get_value m rowInd colInd = None.
+Proof.
+  induction m; smp; intros; subst; eauto.
+  - unfold matrix_get_value; smp.
+    destruct rowInd; eauto.
+  - destruct rowInd, colInd, H; unfold matrix_get_value in *; smp; eauto;
+    try lia; 
+    try (eapply vgv_gte_len_none; lia);
+    try (eapply IHm; lia).
+Qed.
+
 Fixpoint matrix_set_value {A : Type} {rows cols : nat} (mat : @Matrix A rows cols)
         (rowInd colInd : nat) (newV : A) {struct mat} : (@Matrix A rows cols).
 
