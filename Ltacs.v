@@ -48,6 +48,8 @@ Ltac refl := reflexivity.
 
 Ltac cong := congruence.
 
+Ltac intu := intuition.
+
 (*
   Inversion simpler notation tactics
 *)
@@ -66,8 +68,16 @@ Ltac PG := match goal with |- ?A => idtac A end.
 (*
   Solve_By_Inversion
 *)
-(* Tactic Notation "sbi" *)
+Ltac sbi' n :=
+  match goal with
+  | H : _ |- _ =>
+    match n with
+    | 0 => idtac "SBI Failed - try increasing 'n'"
+    | S ?n' => invsc H; sbi' n'
+    end
+  end.
 
+Ltac sbi := sbi' 5.
 
 (*
   Contradiction Solving
